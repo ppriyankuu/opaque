@@ -7,21 +7,30 @@ import { useEffect, useState } from "react";
 import { ImageCard } from "@/components/imageCard";
 
 export default function SelectedPage() {
-    const { images, selectedIndices, toggleSelection, selectAll, deselectAll, setPDFBlob } =
-        useFileStore();
+
+    const {
+        imageFiles,
+        selectedIds,
+        toggleSelection,
+        selectAll,
+        deselectAll,
+        setPDFBlob,
+        reorderImages,
+    } = useFileStore();
+
     const router = useRouter();
     const [isConverting, setIsConverting] = useState(false);
 
     useEffect(() => {
-        if (images.length === 0) {
+        if (imageFiles.length === 0) {
             router.replace("/");
         }
-    }, [images, router]);
+    }, [imageFiles, router]);
 
     const generatePdf = async () => {
-        const selectedFiles = Array.from(selectedIndices)
-            .sort((a, b) => a - b) // maintain order
-            .map((i) => images[i]);
+        const selectedFiles = imageFiles
+            .filter((img) => selectedIds.has(img.id))
+            .map((img) => img.file);
 
         if (selectedFiles.length === 0) return;
 
@@ -86,14 +95,14 @@ export default function SelectedPage() {
             reader.readAsDataURL(file);
         });
 
-    const noneSelected = selectedIndices.size === 0;
+    const noneSelected = selectedIds.size === 0;
 
     return (
         <div className="space-y-8">
             {/* Selection Controls */}
             <div className="flex flex-wrap gap-3 justify-between items-center">
                 <div className="text-[15px] text-gray-400">
-                    {selectedIndices.size} of {images.length} selected
+                    {selectedIds.size} of {imageFiles.length} selected
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -107,26 +116,36 @@ export default function SelectedPage() {
 
             {/* Image Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {images.map((file, idx) => (
+                {imageFiles.map((imgFile, idx) => (
                     <ImageCard
-                        key={idx}
-                        file={file}
+                        key={imgFile.id}
+                        file={imgFile.file}
+                        id={imgFile.id}
+                        isSelected={selectedIds.has(imgFile.id)}
+                        onToggle={() => toggleSelection(imgFile.id)}
                         index={idx}
-                        isSelected={selectedIndices.has(idx)}
-                        onToggle={() => toggleSelection(idx)}
-                    />
-                ))}
+                        onDragStart={(e) => e.dataTransfer.setData("text/plain", idx.toString())}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            const fromIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
+                            const toIndex = idx;
+                            if (fromIndex !== toIndex) {
+                                reorderImages(fromIndex, toIndex);
+                            }
+                        }}
+                    />))}
             </div>
 
             {/* Action Button */}
             <div className="flex justify-center pt-4">
                 <button
-                    className={`btn btn-lg px-8 ${selectedIndices.size === 0
+                    className={`btn btn-lg px-8 ${selectedIds.size === 0
                         ? "btn-disabled bg-gray-700 text-gray-500 cursor-not-allowed"
                         : "btn-primary"
                         }`}
                     onClick={generatePdf}
-                    disabled={selectedIndices.size === 0 || isConverting}
+                    disabled={selectedIds.size === 0 || isConverting}
                 >
                     {isConverting ? (
                         <>

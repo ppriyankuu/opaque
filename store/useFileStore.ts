@@ -1,44 +1,66 @@
 import { create } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface ImageFile {
-    file: File
-};
+    id: string;
+    file: File;
+}
 
 interface FileState {
-    images: File[];
-    selectedIndices: Set<number>;
+    imageFiles: ImageFile[];
+    selectedIds: Set<string>;
     pdfBlob: Blob | null;
+
     setImages: (files: File[]) => void;
-    toggleSelection: (index: number) => void;
+    toggleSelection: (id: string) => void;
     selectAll: () => void;
     deselectAll: () => void;
     setPDFBlob: (blob: Blob | null) => void;
     clear: () => void;
+    reorderImages: (fromIndex: number, toIndex: number) => void;
 }
 
-export const useFileStore = create<FileState>((set, _get) => ({
-    images: [],
-    selectedIndices: new Set(),
+export const useFileStore = create<FileState>((set) => ({
+    imageFiles: [],
+    selectedIds: new Set(),
     pdfBlob: null,
 
-    setImages: (images) => set({ images, selectedIndices: new Set(images.map((_, i) => i)) }),
+    setImages: (files) => {
+        const imageFiles = files.map((file) => ({
+            id: uuidv4(),
+            file,
+        }));
+        const selectedIds = new Set(imageFiles.map((img) => img.id));
+        set({ imageFiles, selectedIds });
+    },
 
-    toggleSelection: (index) =>
+    toggleSelection: (id) =>
         set((state) => {
-            const newSet = new Set(state.selectedIndices);
-            if (newSet.has(index)) {
-                newSet.delete(index);
+            const newSet = new Set(state.selectedIds);
+            if (newSet.has(id)) {
+                newSet.delete(id);
             } else {
-                newSet.add(index);
+                newSet.add(id);
             }
-            return { selectedIndices: newSet };
+            return { selectedIds: newSet };
         }),
 
     selectAll: () =>
-        set((state) => ({ selectedIndices: new Set(state.images.map((_, i) => i)) })),
+        set((state) => ({
+            selectedIds: new Set(state.imageFiles.map((img) => img.id)),
+        })),
 
-    deselectAll: () => set({ selectedIndices: new Set() }),
+    deselectAll: () => set({ selectedIds: new Set() }),
 
     setPDFBlob: (pdfBlob) => set({ pdfBlob }),
-    clear: () => set({ images: [], selectedIndices: new Set(), pdfBlob: null }),
+
+    clear: () => set({ imageFiles: [], selectedIds: new Set(), pdfBlob: null }),
+
+    reorderImages: (fromIndex, toIndex) =>
+        set((state) => {
+            const newImages = [...state.imageFiles];
+            const [moved] = newImages.splice(fromIndex, 1);
+            newImages.splice(toIndex, 0, moved);
+            return { imageFiles: newImages };
+        }),
 }));
