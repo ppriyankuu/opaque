@@ -5,14 +5,16 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import {
-    DndContext,
-    DragOverlay,
-    closestCenter,
-    KeyboardSensor,
     PointerSensor,
+    KeyboardSensor,
+    TouchSensor,
+    MouseSensor,
     useSensor,
     useSensors,
-} from '@dnd-kit/core';
+    DndContext,
+    closestCenter,
+    DragOverlay,
+} from "@dnd-kit/core";
 import {
     arrayMove,
     SortableContext,
@@ -67,7 +69,13 @@ export default function SelectedPage() {
 
     // dnd-kit sensors
     const sensors = useSensors(
-        useSensor(PointerSensor),
+        useSensor(MouseSensor),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 100, // press delay before drag starts
+                tolerance: 5, // movement tolerance
+            },
+        }),
         useSensor(KeyboardSensor, {
             coordinateGetter: sortableKeyboardCoordinates,
         })
