@@ -19,7 +19,7 @@ import {
     sortableKeyboardCoordinates,
     horizontalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { SortableImageCard } from "@/components/sortableImageCard";
+import { SortableImageCard } from "@/components/img-to-pdf/sortableImageCard";
 import { generatePDFFromImages } from "@/lib/pdf-helper";
 
 export default function SelectedPage() {
@@ -54,7 +54,7 @@ export default function SelectedPage() {
         try {
             const blob = await generatePDFFromImages(selectedFiles);
             setPDFBlob(blob);
-            router.push("/pdf");
+            router.push("/img-to-pdf/pdf");
         } catch (error) {
             console.error("PDF generation failed:", error);
             // Handle error appropriately
@@ -150,7 +150,7 @@ export default function SelectedPage() {
                 <button
                     className={`btn btn-lg px-8 ${noneSelected || isConverting
                         ? "btn-disabled bg-gray-700 text-gray-500 cursor-not-allowed"
-                        : "bg-purple-700"
+                        : "btn-secondary"
                         }`}
                     onClick={generatePdf}
                     disabled={noneSelected || isConverting}

@@ -3,24 +3,36 @@
 import { generatePDFFromImages } from "@/lib/pdf-helper";
 import { useFileStore } from "@/store/useFileStore";
 import imageCompression from "browser-image-compression";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function PdfPage() {
     const { pdfBlob, imageFiles } = useFileStore();
     const [isCompressing, setIsCompressing] = useState(false);
+    const [fileName, setFileName] = useState<string>("");
+
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!pdfBlob) {
+            router.replace('/img-to-pdf');
+        }
+    }, [pdfBlob, router]);
 
     // ---------- Filename ----------
-    const now = new Date();
+    useEffect(() => {
+        const now = new Date();
 
-    const day = String(now.getDate()).padStart(2, "0");
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const year = now.getFullYear();
+        const day = String(now.getDate()).padStart(2, "0");
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const year = now.getFullYear();
 
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        const seconds = String(now.getSeconds()).padStart(2, "0");
 
-    const fileName = `${day}-${month}-${year}_${hours}-${minutes}-${seconds}.pdf`;
+        setFileName(`${day}-${month}-${year}_${hours}-${minutes}-${seconds}.pdf`);
+    }, []);
 
     // ---------- Download Original ----------
     const downloadStandard = () => {
@@ -91,7 +103,7 @@ export default function PdfPage() {
 
                 <div className="space-y-4">
                     <button
-                        className="btn btn-outline btn-block text-white border-gray-700 hover:border-purple-500 hover:bg-gray-800 transition-colors"
+                        className="btn btn-outline btn-block text-white border-gray-600 hover:border-purple-500 hover:bg-gray-800 transition-colors"
                         onClick={downloadStandard}
                         disabled={!pdfBlob}
                     >
@@ -99,14 +111,14 @@ export default function PdfPage() {
                     </button>
 
                     <button
-                        className={`btn btn-primary btn-block ${isCompressing ? "opacity-80 cursor-not-allowed" : ""
+                        className={`btn btn-primary btn-block py-6 md:py-0 ${isCompressing ? "opacity-80 cursor-not-allowed" : ""
                             }`}
                         onClick={downloadCompressed}
                         disabled={isCompressing || imageFiles.length === 0}
                     >
                         {isCompressing ? (
                             <>
-                                <span className="loading loading-spinner loading-sm mr-2"></span>
+                                <span className="inline-block w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
                                 Compressing...
                             </>
                         ) : (
