@@ -2,12 +2,27 @@
 
 import { useFileStore } from "@/store/useFileStore";
 import { useRouter } from "next/navigation";
-import { jsPDF } from "jspdf";
 import { useEffect, useState } from "react";
-import { ImageCard } from "@/components/imageCard";
+
+import {
+    DndContext,
+    DragOverlay,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { SortableImageCard } from "@/components/sortableImageCard";
+import { generatePDFFromImages } from "@/lib/pdf-helper";
 
 export default function SelectedPage() {
-
     const {
         imageFiles,
         selectedIds,
@@ -15,11 +30,12 @@ export default function SelectedPage() {
         selectAll,
         deselectAll,
         setPDFBlob,
-        reorderImages,
+        setImagesOrdered,
     } = useFileStore();
 
     const router = useRouter();
     const [isConverting, setIsConverting] = useState(false);
+    const [activeId, setActiveId] = useState<string | null>(null);
 
     useEffect(() => {
         if (imageFiles.length === 0) {
@@ -35,67 +51,44 @@ export default function SelectedPage() {
         if (selectedFiles.length === 0) return;
 
         setIsConverting(true);
-        const pdf = new jsPDF();
-
-        for (let i = 0; i < selectedFiles.length; i++) {
-            const imgData = await fileToDataUrl(selectedFiles[i]);
-
-            const img = new Image();
-            img.src = imgData;
-
-            await new Promise((resolve) => (img.onload = resolve));
-
-            if (i > 0) pdf.addPage();
-
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-
-            const imgWidth = img.width;
-            const imgHeight = img.height;
-
-            // Calculate scale ratio (fit inside page)
-            const widthRatio = pageWidth / imgWidth;
-            const heightRatio = pageHeight / imgHeight;
-            const scale = Math.min(widthRatio, heightRatio);
-
-            const renderWidth = imgWidth * scale;
-            const renderHeight = imgHeight * scale;
-
-            // Center image
-            const x = (pageWidth - renderWidth) / 2;
-            const y = (pageHeight - renderHeight) / 2;
-
-            const format =
-                selectedFiles[i].type.split("/")[1].toUpperCase() === "PNG"
-                    ? "PNG"
-                    : "JPEG";
-
-            pdf.addImage(
-                imgData,
-                format,
-                x,
-                y,
-                renderWidth,
-                renderHeight,
-                undefined,
-                "FAST"
-            );
+        try {
+            const blob = await generatePDFFromImages(selectedFiles);
+            setPDFBlob(blob);
+            router.push("/pdf");
+        } catch (error) {
+            console.error("PDF generation failed:", error);
+            // Handle error appropriately
+        } finally {
+            setIsConverting(false);
         }
-
-        const blob = pdf.output("blob");
-        setPDFBlob(blob);
-        setIsConverting(false);
-        router.push("/pdf");
     };
 
-    const fileToDataUrl = (file: File): Promise<string> =>
-        new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target?.result as string);
-            reader.readAsDataURL(file);
-        });
-
     const noneSelected = selectedIds.size === 0;
+
+    // dnd-kit sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragStart = (event: any) => {
+        setActiveId(event.active.id);
+    };
+
+    const handleDragEnd = (event: any) => {
+        const { active, over } = event;
+        setActiveId(null);
+
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = imageFiles.findIndex((img) => img.id === active.id);
+        const newIndex = imageFiles.findIndex((img) => img.id === over.id);
+
+        const reordered = arrayMove(imageFiles, oldIndex, newIndex);
+        setImagesOrdered(reordered);
+    };
 
     return (
         <div className="space-y-8">
@@ -114,42 +107,57 @@ export default function SelectedPage() {
                 </div>
             </div>
 
-            {/* Image Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {imageFiles.map((imgFile, idx) => (
-                    <ImageCard
-                        key={imgFile.id}
-                        file={imgFile.file}
-                        id={imgFile.id}
-                        isSelected={selectedIds.has(imgFile.id)}
-                        onToggle={() => toggleSelection(imgFile.id)}
-                        index={idx}
-                        onDragStart={(e) => e.dataTransfer.setData("text/plain", idx.toString())}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                            e.preventDefault();
-                            const fromIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
-                            const toIndex = idx;
-                            if (fromIndex !== toIndex) {
-                                reorderImages(fromIndex, toIndex);
-                            }
-                        }}
-                    />))}
-            </div>
+            {/* Draggable Image Grid */}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+            >
+                <SortableContext
+                    items={imageFiles.map((img) => img.id)}
+                    strategy={horizontalListSortingStrategy}
+                >
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {imageFiles.map((imgFile) => (
+                            <SortableImageCard
+                                key={imgFile.id}
+                                id={imgFile.id}
+                                file={imgFile.file}
+                                isSelected={selectedIds.has(imgFile.id)}
+                                onToggle={() => toggleSelection(imgFile.id)}
+                            />
+                        ))}
+                    </div>
+                </SortableContext>
+
+                <DragOverlay>
+                    {activeId ? (
+                        <div className="cursor-grabbing">
+                            <SortableImageCard
+                                id={activeId}
+                                file={imageFiles.find((f) => f.id === activeId)?.file!}
+                                isSelected={false}
+                                onToggle={() => { }}
+                            />
+                        </div>
+                    ) : null}
+                </DragOverlay>
+            </DndContext>
 
             {/* Action Button */}
             <div className="flex justify-center pt-4">
                 <button
-                    className={`btn btn-lg px-8 ${selectedIds.size === 0
+                    className={`btn btn-lg px-8 ${noneSelected || isConverting
                         ? "btn-disabled bg-gray-700 text-gray-500 cursor-not-allowed"
-                        : "btn-primary"
+                        : "bg-purple-700"
                         }`}
                     onClick={generatePdf}
-                    disabled={selectedIds.size === 0 || isConverting}
+                    disabled={noneSelected || isConverting}
                 >
                     {isConverting ? (
                         <>
-                            <span className="loading loading-spinner loading-sm mr-2"></span>
+                            <span className="inline-block w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
                             Converting...
                         </>
                     ) : (

@@ -1,14 +1,15 @@
 "use client";
 
+import { generatePDFFromImages } from "@/lib/pdf-helper";
 import { useFileStore } from "@/store/useFileStore";
 import imageCompression from "browser-image-compression";
-import { jsPDF } from "jspdf";
 import { useState } from "react";
 
 export default function PdfPage() {
-    const { pdfBlob, images } = useFileStore();
+    const { pdfBlob, imageFiles } = useFileStore();
     const [isCompressing, setIsCompressing] = useState(false);
 
+    // ---------- Filename ----------
     const now = new Date();
 
     const day = String(now.getDate()).padStart(2, "0");
@@ -21,8 +22,10 @@ export default function PdfPage() {
 
     const fileName = `${day}-${month}-${year}_${hours}-${minutes}-${seconds}.pdf`;
 
+    // ---------- Download Original ----------
     const downloadStandard = () => {
         if (!pdfBlob) return;
+
         const url = URL.createObjectURL(pdfBlob);
         const link = document.createElement("a");
         link.href = url;
@@ -33,34 +36,42 @@ export default function PdfPage() {
         URL.revokeObjectURL(url);
     };
 
+    // ---------- Download Compressed ----------
     const downloadCompressed = async () => {
-        if (images.length === 0) return;
+        if (imageFiles.length === 0) return;
 
         setIsCompressing(true);
+
         try {
-            const pdf = new jsPDF();
-            const options = {
-                maxSizeMB: 0.5,
-                maxWidthOrHeight: 1024,
+            const compressionOptions = {
+                maxSizeMB: 1,
+                maxWidthOrHeight: 1280,
                 useWebWorker: true,
                 fileType: "image/jpeg",
             };
 
-            for (let i = 0; i < images.length; i++) {
-                const compressedFile = await imageCompression(images[i], options);
-                const imgData = await new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target?.result as string);
-                    reader.readAsDataURL(compressedFile);
-                });
+            // 1️⃣ Compress all images first
+            const compressedFiles = await Promise.all(
+                imageFiles.map((img) =>
+                    imageCompression(img.file, compressionOptions)
+                )
+            );
 
-                if (i > 0) pdf.addPage();
-                const pageWidth = pdf.internal.pageSize.getWidth();
-                const pageHeight = pdf.internal.pageSize.getHeight();
-                pdf.addImage(imgData, "JPEG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
-            }
+            // 2️⃣ Reuse the same PDF generator
+            const compressedBlob = await generatePDFFromImages(
+                compressedFiles
+            );
 
-            pdf.save(`compressed_${fileName}`);
+            // 3️⃣ Trigger download
+            const url = URL.createObjectURL(compressedBlob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `compressed_${fileName}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
         } finally {
             setIsCompressing(false);
         }
@@ -70,8 +81,12 @@ export default function PdfPage() {
         <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
             <div className="w-full max-w-md bg-neutral-950 border border-gray-700 rounded-2xl p-8 shadow-xl">
                 <div className="text-center mb-8">
-                    <h2 className="text-2xl font-bold text-white mb-2">Your PDF is ready</h2>
-                    <p className="text-purple-400 font-mono text-sm tracking-wide">{fileName}</p>
+                    <h2 className="text-2xl font-bold text-white mb-2">
+                        Your PDF is ready
+                    </h2>
+                    <p className="text-purple-400 font-mono text-sm tracking-wide">
+                        {fileName}
+                    </p>
                 </div>
 
                 <div className="space-y-4">
@@ -87,7 +102,7 @@ export default function PdfPage() {
                         className={`btn btn-primary btn-block ${isCompressing ? "opacity-80 cursor-not-allowed" : ""
                             }`}
                         onClick={downloadCompressed}
-                        disabled={isCompressing || images.length === 0}
+                        disabled={isCompressing || imageFiles.length === 0}
                     >
                         {isCompressing ? (
                             <>

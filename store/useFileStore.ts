@@ -18,6 +18,7 @@ interface FileState {
     setPDFBlob: (blob: Blob | null) => void;
     clear: () => void;
     reorderImages: (fromIndex: number, toIndex: number) => void;
+    setImagesOrdered: (imageFiles: ImageFile[]) => void;
 }
 
 export const useFileStore = create<FileState>((set) => ({
@@ -63,4 +64,6 @@ export const useFileStore = create<FileState>((set) => ({
             newImages.splice(toIndex, 0, moved);
             return { imageFiles: newImages };
         }),
+
+    setImagesOrdered: (imageFiles) => set({ imageFiles }),
 }));
