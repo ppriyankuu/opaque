@@ -6,10 +6,22 @@ export interface ImageFile {
     file: File;
 }
 
+export interface PDFPage {
+    id: string;
+    pageIndex: number;       // original page index in source PDF
+    fileName: string;        // source PDF file name
+    dataUrl: string;         // thumbnail data URL for preview
+    sourceFile?: File;       // reference to original file for export
+}
+
 interface FileState {
     imageFiles: ImageFile[];
     selectedIds: Set<string>;
     pdfBlob: Blob | null;
+
+    // PDF-specific fields
+    pdfPages: PDFPage[];
+    selectedPdfPageIds: Set<string>;
 
     setImages: (files: File[]) => void;
     toggleSelection: (id: string) => void;
@@ -19,12 +31,26 @@ interface FileState {
     clear: () => void;
     reorderImages: (fromIndex: number, toIndex: number) => void;
     setImagesOrdered: (imageFiles: ImageFile[]) => void;
+
+    // PDF page actions
+    setPDFPages: (pages: PDFPage[]) => void;
+    togglePDFPageSelection: (id: string) => void;
+    selectAllPDFPages: () => void;
+    deselectAllPDFPages: () => void;
+    reorderPDFPages: (fromIndex: number, toIndex: number) => void;
+    setPDFPagesOrdered: (pages: PDFPage[]) => void;
+    removeSelectedPDFPages: () => void;
+    clearPDFState: () => void;
 }
 
 export const useFileStore = create<FileState>((set) => ({
     imageFiles: [],
     selectedIds: new Set(),
     pdfBlob: null,
+
+    // PDF-specific initial state
+    pdfPages: [],
+    selectedPdfPageIds: new Set(),
 
     setImages: (files) => {
         const imageFiles = files.map((file) => ({
@@ -66,4 +92,44 @@ export const useFileStore = create<FileState>((set) => ({
         }),
 
     setImagesOrdered: (imageFiles) => set({ imageFiles }),
+
+    // PDF page actions
+    setPDFPages: (pages) =>
+        set({ pdfPages: pages, selectedPdfPageIds: new Set(pages.map((p) => p.id)) }),
+
+    togglePDFPageSelection: (id) =>
+        set((state) => {
+            const newSet = new Set(state.selectedPdfPageIds);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return { selectedPdfPageIds: newSet };
+        }),
+
+    selectAllPDFPages: () =>
+        set((state) => ({
+            selectedPdfPageIds: new Set(state.pdfPages.map((p) => p.id)),
+        })),
+
+    deselectAllPDFPages: () => set({ selectedPdfPageIds: new Set() }),
+
+    reorderPDFPages: (fromIndex, toIndex) =>
+        set((state) => {
+            const newPages = [...state.pdfPages];
+            const [moved] = newPages.splice(fromIndex, 1);
+            newPages.splice(toIndex, 0, moved);
+            return { pdfPages: newPages };
+        }),
+
+    setPDFPagesOrdered: (pages) => set({ pdfPages: pages }),
+
+    removeSelectedPDFPages: () =>
+        set((state) => ({
+            pdfPages: state.pdfPages.filter((p) => !state.selectedPdfPageIds.has(p.id)),
+            selectedPdfPageIds: new Set(),
+        })),
+
+    clearPDFState: () => set({ pdfPages: [], selectedPdfPageIds: new Set() }),
 }));

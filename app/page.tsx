@@ -14,11 +14,18 @@ export default function HomePage() {
       badge: "Popular",
     },
     {
-      title: "JPG to PNG",
+      title: "Edit PDF",
       description:
-        "Convert JPG/JPEG images to PNG format instantly and securely.",
-      route: "/jpg-to-png",
-      badge: "Convert",
+        "Upload a PDF, reorder or delete pages, and export the edited version.",
+      route: "/edit-pdf",
+      badge: "Edit",
+    },
+    {
+      title: "Merge PDFs",
+      description:
+        "Combine multiple PDFs, rearrange pages, and export the merged result.",
+      route: "/merge-pdf",
+      badge: "Merge",
     },
     {
       title: "Image Compressor",
@@ -26,6 +33,13 @@ export default function HomePage() {
         "Reduce image size while keeping quality. Perfect for faster sharing.",
       route: "/compress",
       badge: "Optimize",
+    },
+    {
+      title: "JPG to PNG",
+      description:
+        "Convert JPG/JPEG images to PNG format instantly and securely.",
+      route: "/jpg-to-png",
+      badge: "Convert",
     },
   ];
 
@@ -48,7 +62,7 @@ export default function HomePage() {
       </div>
 
       {/* Tools Grid */}
-      <div className="grid gap-8 w-full max-w-6xl grid-cols-1 md:grid-cols-3">
+      <div className="grid gap-8 w-full max-w-6xl grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {tools.map((tool) => (
           <div
             key={tool.title}
