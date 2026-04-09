@@ -45,7 +45,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[80vh] flex flex-col items-center px-4 
-                pt-5 md:pt-28 lg:pt-20 
+                pt-5 md:pt-18 lg:pt-10 
                 justify-start md:justify-start lg:justify-start">
       {/* Hero Section */}
       <div className="text-center mb-14 max-w-2xl">
